@@ -83,19 +83,10 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
-func (gc *GitCommenter) FormatSemantic(semantic []string) string {
-	var s string
-	for _, se := range semantic {
-		if s == "" {
-			s = fmt.Sprintf("%s%s", se, s)
-		} else {
-			s = fmt.Sprintf("%s\n%s", se, s)
-		}
-	}
-	return s
-}
-
 func (gc *GitCommenter) RunFzfSemantic(file string) (string, error) {
+	if gc.Semantic == "" {
+		return "", nil
+	}
 	input := bytes.NewBufferString(gc.Semantic)
 	cmd := exec.Command("fzf", "--header", "Semantic for "+file)
 	var stdout bytes.Buffer
