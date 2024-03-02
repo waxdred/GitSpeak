@@ -78,4 +78,4 @@ Follow the interactive prompt provided by fzf to select the most appropriate com
 
 ## Contributing
 
-Contributions to GitSpeak are welcome! Please refer to the CONTRIBUTING.md file for more information on how to contribute to this project.
+Contributions to GitSpeak are welcome!
