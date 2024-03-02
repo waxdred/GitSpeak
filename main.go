@@ -100,6 +100,36 @@ func (gc *GitCommenter) GitCommit(commitMessage string) error {
 	return nil
 }
 
+func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
+	resp, err := gc.Client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions),
+				},
+			},
+		},
+	)
+
+	if err != nil {
+		fmt.Printf("ChatCompletion error: %v\n", err)
+		return nil, err
+	}
+	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
+	for i, s := range prompt {
+		prompt[i] = strings.TrimPrefix(s, "- ")
+		prompt[i] = strings.Replace(prompt[i], "\n", "", -1)
+		if unicode.IsDigit(rune(prompt[i][0])) {
+			index := strings.Index(prompt[i], " ")
+			prompt[i] = prompt[i][index+1:]
+		}
+	}
+	return prompt, nil
+}
+
 func (gc *GitCommenter) ProcessCommits() {
 	files, err := gc.GetStagedFiles()
 	if err != nil {
@@ -116,33 +146,12 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error getting diff for file:", file, err)
 			return
 		}
-		resp, err := gc.Client.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model: openai.GPT3Dot5Turbo,
-				Messages: []openai.ChatCompletionMessage{
-					{
-						Role:    openai.ChatMessageRoleUser,
-						Content: fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions),
-					},
-				},
-			},
-		)
-
+		prompt, err := gc.ChatGpt(diff)
 		if err != nil {
-			fmt.Printf("ChatCompletion error: %v\n", err)
+			fmt.Println("Error running chat gpt:", err)
 			return
 		}
-		selection := strings.Split(resp.Choices[0].Message.Content, "\n")
-		for i, s := range selection {
-			selection[i] = strings.TrimPrefix(s, "- ")
-			selection[i] = strings.Replace(selection[i], "\n", "", -1)
-			if unicode.IsDigit(rune(selection[i][0])) {
-				index := strings.Index(selection[i], " ")
-				selection[i] = selection[i][index+1:]
-			}
-		}
-		commit, err := gc.RunFzf(selection)
+		commit, err := gc.RunFzf(prompt)
 		if err != nil {
 			fmt.Println("Error running fzf:", err)
 			return
