@@ -16,8 +16,9 @@ import (
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
 var (
-	answerSize = flag.Int("max_length", 60, "The maximum size of each generated answer.")
-	answer     = flag.Int("answer", 4, "The number of answers to generate.")
+	semanticTerms = flag.String("semantic", "feat,fix,docs,style,refactor,perf,test,ci,chore,revert", "List of custom semantic commit terms separated by commas.")
+	answerSize    = flag.Int("max_length", 60, "The maximum size of each generated answer.")
+	answer        = flag.Int("answer", 4, "The number of answers to generate.")
 )
 
 type GitCommenter struct {
@@ -32,6 +33,7 @@ func NewGitCommenter(apiKey string) *GitCommenter {
 	g := &GitCommenter{
 		OpenAIKey: apiKey,
 		Client:    openai.NewClient(apiKey),
+		Semantic:  strings.Replace(*semanticTerms, ",", ":\n", -1),
 	}
 	g.PathDirGit()
 	return g
@@ -81,8 +83,20 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
+func (gc *GitCommenter) FormatSemantic(semantic []string) string {
+	var s string
+	for _, se := range semantic {
+		if s == "" {
+			s = fmt.Sprintf("%s%s", se, s)
+		} else {
+			s = fmt.Sprintf("%s\n%s", se, s)
+		}
+	}
+	return s
+}
+
 func (gc *GitCommenter) RunFzfSemantic(file string) (string, error) {
-	input := bytes.NewBufferString("feat:\nfix:\ndocs:\nstyle:\nrefactor:\nperf:\ntest:\nci:\nchore:\nrevert:\nnone:")
+	input := bytes.NewBufferString(gc.Semantic)
 	cmd := exec.Command("fzf", "--header", "Semantic for "+file)
 	var stdout bytes.Buffer
 	cmd.Stdin = input
