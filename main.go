@@ -6,18 +6,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	openai "github.com/sashabaranov/go-openai"
 	"os"
 	"os/exec"
 	"strings"
 	"unicode"
-
-	openai "github.com/sashabaranov/go-openai"
 )
 
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
 var (
-	answerSize = flag.Int("max_length", 40, "The maximum size of each generated answer.")
+	answerSize = flag.Int("max_length", 60, "The maximum size of each generated answer.")
 	answer     = flag.Int("answer", 4, "The number of answers to generate.")
 )
 
@@ -25,13 +24,31 @@ type GitCommenter struct {
 	OpenAIKey    string
 	Client       *openai.Client
 	Instructions string
+	PathdirGit   string
 }
 
 func NewGitCommenter(apiKey string) *GitCommenter {
-	return &GitCommenter{
+	g := &GitCommenter{
 		OpenAIKey: apiKey,
 		Client:    openai.NewClient(apiKey),
 	}
+	g.PathDirGit()
+	return g
+}
+
+func (gc *GitCommenter) PathDirGit() error {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Erreur lors de l'exécution de la commande git:", err)
+		return err
+	}
+	gitDirPath := strings.TrimSpace(out.String())
+	gc.PathdirGit = strings.TrimSuffix(gitDirPath, "/.git")
+	return nil
 }
 
 func (gc *GitCommenter) GetStagedFiles() ([]string, error) {
@@ -46,7 +63,7 @@ func (gc *GitCommenter) GetStagedFiles() ([]string, error) {
 	var cleanedFiles []string
 	for _, file := range files {
 		if file != "" {
-			cleanedFiles = append(cleanedFiles, file)
+			cleanedFiles = append(cleanedFiles, fmt.Sprintf("%s/%s", gc.PathdirGit, file))
 		}
 	}
 	return cleanedFiles, nil
@@ -63,7 +80,7 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
-func (gc *GitCommenter) RunFzf(selection []string, diff string) (string, error) {
+func (gc *GitCommenter) RunFzf(selection []string, diff string, file string) (string, error) {
 	var err error
 	customOption := "Customize commit message..."
 	reloadOption := "Reload suggestions..."
@@ -72,7 +89,7 @@ func (gc *GitCommenter) RunFzf(selection []string, diff string) (string, error) 
 		selection = append(selection, customOption)
 		selection = append(selection, reloadOption)
 		input := bytes.NewBufferString(strings.Join(selection, "\n"))
-		cmd := exec.Command("fzf")
+		cmd := exec.Command("fzf", "--header", "commit: "+file)
 		var stdout bytes.Buffer
 		cmd.Stdin = input
 		cmd.Stderr = os.Stderr
@@ -133,11 +150,17 @@ func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
 	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
 	for i, s := range prompt {
 		prompt[i] = strings.TrimPrefix(s, "- ")
-		prompt[i] = strings.Replace(prompt[i], "\n", "", -1)
 		if len(prompt[i]) > 0 && unicode.IsDigit(rune(prompt[i][0])) {
 			index := strings.Index(prompt[i], " ")
-			prompt[i] = prompt[i][index+1:]
+			if index != -1 {
+				prompt[i] = prompt[i][index+1:]
+			}
 		}
+		index := strings.Index(prompt[i], ".")
+		if index != -1 {
+			prompt[i] = prompt[i][:index]
+		}
+		prompt[i] = strings.Replace(prompt[i], "\n", "", -1)
 	}
 	return prompt, nil
 }
@@ -163,7 +186,7 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error running chat gpt:", err)
 			return
 		}
-		commit, err := gc.RunFzf(prompt, diff)
+		commit, err := gc.RunFzf(prompt, diff, file)
 		if err != nil {
 			fmt.Println("Error running fzf:", err)
 			return
