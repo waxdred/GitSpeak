@@ -81,9 +81,9 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
-func (gc *GitCommenter) RunFzfSemantic() (string, error) {
+func (gc *GitCommenter) RunFzfSemantic(file string) (string, error) {
 	input := bytes.NewBufferString("feat:\nfix:\ndocs:\nstyle:\nrefactor:\nperf:\ntest:\nci:\nchore:\nrevert:\nnone:")
-	cmd := exec.Command("fzf", "--header", "Choose a commit semantic")
+	cmd := exec.Command("fzf", "--header", "Semantic for "+file)
 	var stdout bytes.Buffer
 	cmd.Stdin = input
 	cmd.Stderr = os.Stderr
@@ -154,9 +154,9 @@ func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
 	return nil
 }
 
-func (gc *GitCommenter) GenPrompt() error {
+func (gc *GitCommenter) GenPrompt(file string) error {
 	var err error
-	gc.Semantic, err = gc.RunFzfSemantic()
+	gc.Semantic, err = gc.RunFzfSemantic(file)
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error getting diff for file:", file, err)
 			return
 		}
-		err = gc.GenPrompt()
+		err = gc.GenPrompt(file)
 		if err != nil {
 			fmt.Println("Error generating prompt:", err)
 			return
