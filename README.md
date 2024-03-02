@@ -17,7 +17,7 @@ GitSpeak is an innovative tool designed to enhance your Git workflow by automati
 - Integration with OpenAI's GPT-3.5: Utilizes the latest AI models for accurate and context-aware message generation.
 - Easy Installation: Simple setup process that integrates smoothly with your existing Git workflow.
 
-![](https://i.imgur.com/YqPOWbq.mp4)
+![](https://i.imgur.com/W5hUk29.gif)
 
 ## Prerequisites
 
