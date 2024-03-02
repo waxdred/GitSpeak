@@ -10,7 +10,6 @@ GitSpeak is an innovative tool designed to enhance your Git workflow by automati
 - [Configuration](#Configuration)
 - [Options](#Options)
 - [Usages](#Usages)
-- [Contributing](#Contributing)
 
 ## Features
 
