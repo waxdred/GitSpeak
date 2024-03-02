@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,15 +12,17 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-const ANSWER_SIZE = 40
-const ANSWER = 4
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
-var INSTRUCTIONS = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", ANSWER_SIZE, ANSWER)
+var (
+	answerSize = flag.Int("answer_size", 40, "The maximum size of each generated answer.")
+	answer     = flag.Int("answer", 4, "The number of answers to generate.")
+)
 
 type GitCommenter struct {
-	OpenAIKey string
-	Client    *openai.Client
+	OpenAIKey    string
+	Client       *openai.Client
+	Instructions string
 }
 
 func NewGitCommenter(apiKey string) *GitCommenter {
@@ -105,7 +108,7 @@ func (gc *GitCommenter) ProcessCommits() {
 				Messages: []openai.ChatCompletionMessage{
 					{
 						Role:    openai.ChatMessageRoleUser,
-						Content: fmt.Sprintf("%s%s%s", PROMPT, diff, INSTRUCTIONS),
+						Content: fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions),
 					},
 				},
 			},
@@ -118,6 +121,7 @@ func (gc *GitCommenter) ProcessCommits() {
 		selection := strings.Split(resp.Choices[0].Message.Content, "\n")
 		for i, s := range selection {
 			selection[i] = strings.TrimPrefix(s, "- ")
+			selection[i] = strings.Replace(selection[i], "\n", "", -1)
 		}
 		commit, err := gc.RunFzf(selection)
 		if err != nil {
@@ -133,11 +137,13 @@ func (gc *GitCommenter) ProcessCommits() {
 }
 
 func main() {
+	flag.Parse()
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("OPENAI_API_KEY environment variable not set")
 		return
 	}
 	commenter := NewGitCommenter(apiKey)
+	commenter.Instructions = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", *answerSize, *answer)
 	commenter.ProcessCommits()
 }
