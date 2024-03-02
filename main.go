@@ -100,11 +100,11 @@ func (gc *GitCommenter) RunFzf(selection []string, diff string) (string, error) 
 	}
 }
 
-func (gc *GitCommenter) GitCommit(commitMessage string) error {
+func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
 	if len(commitMessage) == 0 {
 		return fmt.Errorf("commit message is empty")
 	}
-	cmd := exec.Command("git", "commit", "-m", commitMessage)
+	cmd := exec.Command("git", "commit", filePath, "-m", commitMessage)
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error executing git commit: %w", err)
@@ -134,7 +134,7 @@ func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
 	for i, s := range prompt {
 		prompt[i] = strings.TrimPrefix(s, "- ")
 		prompt[i] = strings.Replace(prompt[i], "\n", "", -1)
-		if unicode.IsDigit(rune(prompt[i][0])) {
+		if len(prompt[i]) > 0 && unicode.IsDigit(rune(prompt[i][0])) {
 			index := strings.Index(prompt[i], " ")
 			prompt[i] = prompt[i][index+1:]
 		}
@@ -168,7 +168,7 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error running fzf:", err)
 			return
 		}
-		err = gc.GitCommit(commit)
+		err = gc.GitCommit(commit, file)
 		if err != nil {
 			fmt.Println("Error committing:", err)
 			return
