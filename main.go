@@ -15,7 +15,7 @@ import (
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
 var (
-	answerSize = flag.Int("answer_size", 40, "The maximum size of each generated answer.")
+	answerSize = flag.Int("max_length", 40, "The maximum size of each generated answer.")
 	answer     = flag.Int("answer", 4, "The number of answers to generate.")
 )
 
