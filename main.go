@@ -12,11 +12,24 @@ import (
 )
 
 const ANSWER_SIZE = 40
+const ANSWER = 4
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
-var INSTRUCTIONS = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least three different comments to provide a variety of perspectives on the changes.\n answer format - answer", ANSWER_SIZE)
+var INSTRUCTIONS = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", ANSWER_SIZE, ANSWER)
 
-func getStageFiles() ([]string, error) {
+type GitCommenter struct {
+	OpenAIKey string
+	Client    *openai.Client
+}
+
+func NewGitCommenter(apiKey string) *GitCommenter {
+	return &GitCommenter{
+		OpenAIKey: apiKey,
+		Client:    openai.NewClient(apiKey),
+	}
+}
+
+func (gc *GitCommenter) GetStagedFiles() ([]string, error) {
 	cmd := exec.Command("git", "diff", "--name-only", "--cached")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -34,7 +47,7 @@ func getStageFiles() ([]string, error) {
 	return cleanedFiles, nil
 }
 
-func getDiffForFile(filePath string) (string, error) {
+func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	cmd := exec.Command("git", "diff", "--cached", filePath)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -45,46 +58,47 @@ func getDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
-func runFzf(selection []string) (string, error) {
+func (gc *GitCommenter) RunFzf(selection []string) (string, error) {
 	input := bytes.NewBufferString(strings.Join(selection, "\n"))
 	cmd := exec.Command("fzf")
 	var stdout bytes.Buffer
-	cmd.Stdin = input      // Définissez le `stdin` de `fzf` pour lire vos réponses
-	cmd.Stderr = os.Stderr // Redirigez également le `stderr` pour capturer les erreurs potentielles
+	cmd.Stdin = input
+	cmd.Stderr = os.Stderr
 	cmd.Stdout = &stdout
 
-	// Démarrez `fzf` et attendez qu'il se termine
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Erreur lors de l'exécution de fzf: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error running fzf: %v\n", err)
 		return "", err
 	}
-	return stdout.String(), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
-func GitCommit(commitMessage string) error {
+func (gc *GitCommenter) GitCommit(commitMessage string) error {
 	cmd := exec.Command("git", "commit", "-m", commitMessage)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("erreur lors de l'exécution du commit git : %w", err)
+		return fmt.Errorf("error executing git commit: %w", err)
 	}
 	return nil
 }
 
-func main() {
-	api_key := os.Getenv("OPENAI_API_KEY")
-	client := openai.NewClient(api_key)
-	files, err := getStageFiles()
+func (gc *GitCommenter) ProcessCommits() {
+	files, err := gc.GetStagedFiles()
 	if err != nil {
-		fmt.Println("Error getting stage files: ", err)
+		fmt.Println("Error getting staged files:", err)
+		return
+	}
+	if len(files) == 0 {
+		fmt.Println("No staged files found")
 		return
 	}
 	for _, file := range files {
-		diff, err := getDiffForFile(file)
+		diff, err := gc.GetDiffForFile(file)
 		if err != nil {
-			fmt.Println("Error getting diff for file: ", file, err)
+			fmt.Println("Error getting diff for file:", file, err)
 			return
 		}
-		resp, err := client.CreateChatCompletion(
+		resp, err := gc.Client.CreateChatCompletion(
 			context.Background(),
 			openai.ChatCompletionRequest{
 				Model: openai.GPT3Dot5Turbo,
@@ -105,15 +119,21 @@ func main() {
 		for i, s := range selection {
 			selection[i] = strings.TrimPrefix(s, "- ")
 		}
-		commit, err := runFzf(selection)
+		commit, err := gc.RunFzf(selection)
 		if err != nil {
-			fmt.Println("Error running fzf: ", err)
+			fmt.Println("Error running fzf:", err)
 			return
 		}
-		err = GitCommit(commit[3:])
+		err = gc.GitCommit(commit)
 		if err != nil {
-			fmt.Println("Error committing: ", err)
+			fmt.Println("Error committing:", err)
 			return
 		}
 	}
+}
+
+func main() {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	commenter := NewGitCommenter(apiKey)
+	commenter.ProcessCommits()
 }
