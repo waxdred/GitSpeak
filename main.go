@@ -183,6 +183,7 @@ func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
 		return nil, err
 	}
 	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
+	var p []string
 	for i, s := range prompt {
 		prompt[i] = strings.TrimPrefix(s, "- ")
 		if len(prompt[i]) > 0 && unicode.IsDigit(rune(prompt[i][0])) {
@@ -196,8 +197,11 @@ func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
 			prompt[i] = prompt[i][:index]
 		}
 		prompt[i] = strings.Replace(prompt[i], "\n", "", -1)
+		if prompt[i] != "" {
+			p = append(p, prompt[i])
+		}
 	}
-	return prompt, nil
+	return p, nil
 }
 
 func (gc *GitCommenter) ProcessCommits() {
