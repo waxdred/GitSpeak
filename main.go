@@ -13,11 +13,7 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-const (
-	PROMPT          = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
-	customizeOption = "Customize commit message..."
-	reloadOption    = "Reload suggestions..."
-)
+const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
 var (
 	answerSize = flag.Int("max_length", 40, "The maximum size of each generated answer.")
@@ -31,11 +27,9 @@ type GitCommenter struct {
 }
 
 func NewGitCommenter(apiKey string) *GitCommenter {
-	flag.Parse()
 	return &GitCommenter{
-		OpenAIKey:    apiKey,
-		Client:       openai.NewClient(apiKey),
-		Instructions: fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", *answerSize, *answer),
+		OpenAIKey: apiKey,
+		Client:    openai.NewClient(apiKey),
 	}
 }
 
@@ -47,8 +41,14 @@ func (gc *GitCommenter) GetStagedFiles() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	files := strings.Split(strings.TrimSpace(out.String()), "\n")
-	return files, nil
+	files := strings.Split(out.String(), "\n")
+	var cleanedFiles []string
+	for _, file := range files {
+		if file != "" {
+			cleanedFiles = append(cleanedFiles, file)
+		}
+	}
+	return cleanedFiles, nil
 }
 
 func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
@@ -62,47 +62,39 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
-func (gc *GitCommenter) GenerateSuggestions(filePath string) ([]string, error) {
-	diff, err := gc.GetDiffForFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := gc.Client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions),
-				},
-			},
-		},
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	selection := strings.Split(resp.Choices[0].Message.Content, "\n")
-	return selection, nil
-}
-
 func (gc *GitCommenter) RunFzf(selection []string) (string, error) {
-	selection = append(selection, customizeOption, reloadOption)
+	customOption := "Customize commit message..."
+	selection = append(selection, customOption)
 	input := bytes.NewBufferString(strings.Join(selection, "\n"))
-
 	cmd := exec.Command("fzf")
-	cmd.Stdin = input
 	var stdout bytes.Buffer
+	cmd.Stdin = input
+	cmd.Stderr = os.Stderr
 	cmd.Stdout = &stdout
 
 	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running fzf: %v\n", err)
 		return "", err
 	}
+	selected := strings.TrimSpace(stdout.String())
+	if selected == customOption {
+		fmt.Print("Enter your custom commit message: ")
+		reader := bufio.NewReader(os.Stdin)
+		customMessage, _ := reader.ReadString('\n')
+		return strings.TrimSpace(customMessage), nil
+	}
 
-	return strings.TrimSpace(stdout.String()), nil
+	return selected, nil
+}
+
+func (gc *GitCommenter) GitCommit(commitMessage string) error {
+	index := strings.Index(commitMessage, " ")
+	cmd := exec.Command("git", "commit", "-m", commitMessage[index:])
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error executing git commit: %w", err)
+	}
+	return nil
 }
 
 func (gc *GitCommenter) ProcessCommits() {
@@ -111,55 +103,59 @@ func (gc *GitCommenter) ProcessCommits() {
 		fmt.Println("Error getting staged files:", err)
 		return
 	}
-
+	if len(files) == 0 {
+		fmt.Println("No staged files found")
+		return
+	}
 	for _, file := range files {
-		for {
-			suggestions, err := gc.GenerateSuggestions(file)
-			if err != nil {
-				fmt.Println("Error generating suggestions:", err)
-				return
-			}
+		diff, err := gc.GetDiffForFile(file)
+		if err != nil {
+			fmt.Println("Error getting diff for file:", file, err)
+			return
+		}
+		resp, err := gc.Client.CreateChatCompletion(
+			context.Background(),
+			openai.ChatCompletionRequest{
+				Model: openai.GPT3Dot5Turbo,
+				Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    openai.ChatMessageRoleUser,
+						Content: fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions),
+					},
+				},
+			},
+		)
 
-			choice, err := gc.RunFzf(suggestions)
-			if err != nil {
-				fmt.Println("Error running fzf:", err)
-				return
-			}
-
-			if choice == reloadOption {
-				continue // Reload suggestions
-			} else if choice == customizeOption {
-				fmt.Println("Enter your custom commit message:")
-				reader := bufio.NewReader(os.Stdin)
-				customMessage, _ := reader.ReadString('\n')
-				choice = strings.TrimSpace(customMessage)
-			}
-
-			if err := gc.GitCommit(choice); err != nil {
-				fmt.Println("Error committing:", err)
-				return
-			}
-			break
+		if err != nil {
+			fmt.Printf("ChatCompletion error: %v\n", err)
+			return
+		}
+		selection := strings.Split(resp.Choices[0].Message.Content, "\n")
+		for i, s := range selection {
+			selection[i] = strings.TrimPrefix(s, "- ")
+			selection[i] = strings.Replace(selection[i], "\n", "", -1)
+		}
+		commit, err := gc.RunFzf(selection)
+		if err != nil {
+			fmt.Println("Error running fzf:", err)
+			return
+		}
+		err = gc.GitCommit(commit)
+		if err != nil {
+			fmt.Println("Error committing:", err)
+			return
 		}
 	}
 }
 
-func (gc *GitCommenter) GitCommit(commitMessage string) error {
-	cmd := exec.Command("git", "commit", "-m", commitMessage)
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error executing git commit: %w", err)
-	}
-	return nil
-}
-
 func main() {
+	flag.Parse()
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("OPENAI_API_KEY environment variable not set")
 		return
 	}
-
 	commenter := NewGitCommenter(apiKey)
+	commenter.Instructions = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", *answerSize, *answer)
 	commenter.ProcessCommits()
 }
