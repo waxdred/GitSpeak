@@ -63,29 +63,41 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
-func (gc *GitCommenter) RunFzf(selection []string) (string, error) {
+func (gc *GitCommenter) RunFzf(selection []string, diff string) (string, error) {
+	var err error
 	customOption := "Customize commit message..."
-	selection = append(selection, customOption)
-	input := bytes.NewBufferString(strings.Join(selection, "\n"))
-	cmd := exec.Command("fzf")
-	var stdout bytes.Buffer
-	cmd.Stdin = input
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = &stdout
+	reloadOption := "Reload suggestions..."
 
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error running fzf: %v\n", err)
-		return "", err
-	}
-	selected := strings.TrimSpace(stdout.String())
-	if selected == customOption {
-		fmt.Print("Enter your custom commit message: ")
-		reader := bufio.NewReader(os.Stdin)
-		customMessage, _ := reader.ReadString('\n')
-		return strings.TrimSpace(customMessage), nil
-	}
+	for {
+		selection = append(selection, customOption)
+		selection = append(selection, reloadOption)
+		input := bytes.NewBufferString(strings.Join(selection, "\n"))
+		cmd := exec.Command("fzf")
+		var stdout bytes.Buffer
+		cmd.Stdin = input
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = &stdout
 
-	return selected, nil
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running fzf: %v\n", err)
+			return "", err
+		}
+		selected := strings.TrimSpace(stdout.String())
+		if selected == customOption {
+			fmt.Print("Enter your custom commit message: ")
+			reader := bufio.NewReader(os.Stdin)
+			customMessage, _ := reader.ReadString('\n')
+			return strings.TrimSpace(customMessage), nil
+		} else if selected == reloadOption {
+			selection, err = gc.ChatGpt(diff)
+			if err != nil {
+				fmt.Println("Error running chat gpt:", err)
+				return "", err
+			}
+			continue
+		}
+		return selected, nil
+	}
 }
 
 func (gc *GitCommenter) GitCommit(commitMessage string) error {
@@ -151,7 +163,7 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error running chat gpt:", err)
 			return
 		}
-		commit, err := gc.RunFzf(prompt)
+		commit, err := gc.RunFzf(prompt, diff)
 		if err != nil {
 			fmt.Println("Error running fzf:", err)
 			return

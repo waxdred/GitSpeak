@@ -32,7 +32,7 @@ make
 
 This command builds the GitSpeak tool and places the binary in ~/.GitSpeak/bin.
 
-3.  Add GitSpeak to your PATH.
+3.  Add GitSpeak to your `PATH`.
 
 ```bash
 echo 'export PATH=$PATH:~/.GitSpeak/bin' >> ~/.bashrc
