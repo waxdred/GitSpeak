@@ -11,8 +11,10 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
+const ANSWER_SIZE = 40
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
-const INSTUCTIONS = "\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of 30 characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least three different comments to provide a variety of perspectives on the changes.\n answer format - answer"
+
+var INSTRUCTIONS = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least three different comments to provide a variety of perspectives on the changes.\n answer format - answer", ANSWER_SIZE)
 
 func getStageFiles() ([]string, error) {
 	cmd := exec.Command("git", "diff", "--name-only", "--cached")
@@ -71,7 +73,6 @@ func GitCommit(commitMessage string) error {
 func main() {
 	api_key := os.Getenv("OPENAI_API_KEY")
 	client := openai.NewClient(api_key)
-	fmt.Println("API Key: ", api_key)
 	files, err := getStageFiles()
 	if err != nil {
 		fmt.Println("Error getting stage files: ", err)
@@ -90,7 +91,7 @@ func main() {
 				Messages: []openai.ChatCompletionMessage{
 					{
 						Role:    openai.ChatMessageRoleUser,
-						Content: fmt.Sprintf("%s%s%s", PROMPT, diff, INSTUCTIONS),
+						Content: fmt.Sprintf("%s%s%s", PROMPT, diff, INSTRUCTIONS),
 					},
 				},
 			},
