@@ -55,6 +55,7 @@ GitSpeak supports a number of command-line flag options that allow you to custom
 
 - `max_length`: Sets the maximum size of each generated answer. This controls the length of the commit messages that GitSpeak generates. The default value is 40. Example usage: GitSpeak -answer_size=50
 - `answer`: Specifies the number of answers (commit messages) to generate. This allows you to control how many different commit message suggestions GitSpeak will offer you to choose from. The default value is 4. Example usage: GitSpeak -answer=3
+- `semantic`: Allows specifying a custom list of semantic commit terms separated by commas. This lets you tailor the semantic categories to your project's needs, enhancing the structure and clarity of your commit history. The default terms are feat, fix, docs, style, refactor, perf, test, ci, chore, revert.
 
 These flags provide you with flexibility in how GitSpeak generates commit messages, allowing you to tailor the output to your specific needs or preferences.
 
@@ -75,6 +76,15 @@ GitSpeak -max_length=60 -answer=5
 This command will generate 5 different commit message suggestions, each with a maximum length of 60 characters.
 
 Follow the interactive prompt provided by fzf to select the most appropriate commit message generated based on your code changes.
+
+Customizing Semantic Terms
+GitSpeak supports custom semantic commit terms, allowing you to tailor the semantic categories to your project's needs. Use the -semantic flag to specify your custom terms separated by commas:
+
+```bash
+./GitSpeak -semantic "feat,fix,docs,customCategory"
+```
+
+The default semantic terms are: feat, fix, docs, style, refactor, perf, test, ci, chore, revert. Use the -semantic flag to override these defaults with your preferred terms.
 
 ## Contributing
 
