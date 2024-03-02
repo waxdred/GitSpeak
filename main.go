@@ -77,7 +77,8 @@ func (gc *GitCommenter) RunFzf(selection []string) (string, error) {
 }
 
 func (gc *GitCommenter) GitCommit(commitMessage string) error {
-	cmd := exec.Command("git", "commit", "-m", commitMessage)
+	index := strings.Index(commitMessage, " ")
+	cmd := exec.Command("git", "commit", "-m", commitMessage[index:])
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error executing git commit: %w", err)
