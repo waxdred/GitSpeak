@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"unicode"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -88,8 +89,10 @@ func (gc *GitCommenter) RunFzf(selection []string) (string, error) {
 }
 
 func (gc *GitCommenter) GitCommit(commitMessage string) error {
-	index := strings.Index(commitMessage, " ")
-	cmd := exec.Command("git", "commit", "-m", commitMessage[index:])
+	if len(commitMessage) == 0 {
+		return fmt.Errorf("commit message is empty")
+	}
+	cmd := exec.Command("git", "commit", "-m", commitMessage)
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error executing git commit: %w", err)
@@ -134,6 +137,10 @@ func (gc *GitCommenter) ProcessCommits() {
 		for i, s := range selection {
 			selection[i] = strings.TrimPrefix(s, "- ")
 			selection[i] = strings.Replace(selection[i], "\n", "", -1)
+			if unicode.IsDigit(rune(selection[i][0])) {
+				index := strings.Index(selection[i], " ")
+				selection[i] = selection[i][index:]
+			}
 		}
 		commit, err := gc.RunFzf(selection)
 		if err != nil {
