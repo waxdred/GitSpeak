@@ -134,6 +134,10 @@ func (gc *GitCommenter) ProcessCommits() {
 
 func main() {
 	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		fmt.Println("OPENAI_API_KEY environment variable not set")
+		return
+	}
 	commenter := NewGitCommenter(apiKey)
 	commenter.ProcessCommits()
 }
