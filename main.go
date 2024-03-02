@@ -25,6 +25,7 @@ type GitCommenter struct {
 	Client       *openai.Client
 	Instructions string
 	PathdirGit   string
+	Semantic     string
 }
 
 func NewGitCommenter(apiKey string) *GitCommenter {
@@ -80,10 +81,34 @@ func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
 	return out.String(), nil
 }
 
+func (gc *GitCommenter) RunFzfSemantic() (string, error) {
+	input := bytes.NewBufferString("feat:\nfix:\ndocs:\nstyle:\nrefactor:\nperf:\ntest:\nci:\nchore:\nrevert:\nnone:")
+	cmd := exec.Command("fzf", "--header", "Choose a commit semantic")
+	var stdout bytes.Buffer
+	cmd.Stdin = input
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running fzf: %v\n", err)
+		return "", err
+	}
+	selected := strings.TrimSpace(stdout.String())
+	if selected == "none:" {
+		return "", nil
+	}
+	return selected, nil
+}
+
 func (gc *GitCommenter) RunFzf(selection []string, diff string, file string) (string, error) {
 	var err error
 	customOption := "Customize commit message..."
 	reloadOption := "Reload suggestions..."
+
+	if err != nil {
+		fmt.Println("Error running fzf semantic:", err)
+		return "", err
+	}
 
 	for {
 		selection = append(selection, customOption)
@@ -126,6 +151,16 @@ func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("error executing git commit: %w", err)
 	}
+	return nil
+}
+
+func (gc *GitCommenter) GenPrompt() error {
+	var err error
+	gc.Semantic, err = gc.RunFzfSemantic()
+	if err != nil {
+		return err
+	}
+	gc.Instructions = fmt.Sprintf("\nInstructions for the model:\n-Semantic Commit Messages%s\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", gc.Semantic, *answerSize, *answer)
 	return nil
 }
 
@@ -181,6 +216,12 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error getting diff for file:", file, err)
 			return
 		}
+		err = gc.GenPrompt()
+		if err != nil {
+			fmt.Println("Error generating prompt:", err)
+			return
+		}
+
 		prompt, err := gc.ChatGpt(diff)
 		if err != nil {
 			fmt.Println("Error running chat gpt:", err)
@@ -190,6 +231,9 @@ func (gc *GitCommenter) ProcessCommits() {
 		if err != nil {
 			fmt.Println("Error running fzf:", err)
 			return
+		}
+		if gc.Semantic != "" {
+			commit = fmt.Sprintf("%s %s", gc.Semantic, commit)
 		}
 		err = gc.GitCommit(commit, file)
 		if err != nil {
@@ -207,6 +251,5 @@ func main() {
 		return
 	}
 	commenter := NewGitCommenter(apiKey)
-	commenter.Instructions = fmt.Sprintf("\nInstructions for the model:\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", *answerSize, *answer)
 	commenter.ProcessCommits()
 }
