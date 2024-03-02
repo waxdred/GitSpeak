@@ -139,7 +139,7 @@ func (gc *GitCommenter) ProcessCommits() {
 			selection[i] = strings.Replace(selection[i], "\n", "", -1)
 			if unicode.IsDigit(rune(selection[i][0])) {
 				index := strings.Index(selection[i], " ")
-				selection[i] = selection[i][index:]
+				selection[i] = selection[i][index+1:]
 			}
 		}
 		commit, err := gc.RunFzf(selection)
