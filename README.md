@@ -2,6 +2,15 @@
 
 GitSpeak is an innovative tool designed to enhance your Git workflow by automatically generating insightful commit messages based on changes made in your code. Leveraging the power of OpenAI's GPT-3.5, GitSpeak analyses your code diffs and crafts descriptive, meaningful commit messages that save you time and improve your project's documentation.
 
+## Table of Contents
+
+- [Features](#Features)
+- [Prerequisites](#Prerequisites)
+- [Installation](#Installation)
+- [Configuration](#Configuration)
+- [Options](#Options)
+- [Usages](#Usages)
+
 ## Features
 
 - Automatic Commit Message Generation: Generate commit messages that describe your code changes and their implications.
@@ -49,7 +58,7 @@ export OPENAI_API_KEY="your_openai_api_key_here"
 
 Add this line to your .bashrc, .zshrc, or equivalent shell configuration file to make it permanent.
 
-## Flag Options
+## Options
 
 GitSpeak supports a number of command-line flag options that allow you to customize its behavior. Below are the available flags and their descriptions:
 
@@ -59,7 +68,7 @@ GitSpeak supports a number of command-line flag options that allow you to custom
 
 These flags provide you with flexibility in how GitSpeak generates commit messages, allowing you to tailor the output to your specific needs or preferences.
 
-## Usage
+## Usages
 
 With GitSpeak installed and configured, simply run the following command within your Git repository to generate a commit message for staged changes
 
