@@ -60,7 +60,7 @@ These flags provide you with flexibility in how GitSpeak generates commit messag
 
 ## Usage
 
-With GitSpeak installed and configured, simply run the following command within your Git repository to generate a commit message for staged changes:
+With GitSpeak installed and configured, simply run the following command within your Git repository to generate a commit message for staged changes
 
 ```bash
 GitSpeak
