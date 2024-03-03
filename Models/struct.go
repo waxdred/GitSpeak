@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -17,6 +18,7 @@ type Ollama struct {
 	Url         string
 	ModelAnswer Model
 	Response    []Model
+	Commit      []string
 }
 
 type Model struct {
@@ -38,10 +40,28 @@ type Request struct {
 	Prompt string `json:"prompt"`
 }
 
-func New(model, url string) *Ollama {
+func New(model, url, port string) *Ollama {
 	return &Ollama{
 		Model: strings.ToLower(model),
-		Url:   fmt.Sprintf("%s/api/generate", url),
+		Url:   fmt.Sprintf("%s/api/generate", fmt.Sprintf("%s:%s", url, port)),
+	}
+}
+
+func (o *Ollama) FormatCommit() {
+	var tmp string
+	for _, r := range o.Response {
+		tmp += r.Response
+	}
+
+	o.Commit = strings.Split(tmp, "\n")
+	for i, _ := range o.Commit {
+		if i == 0 && o.Commit[i][0] == ' ' {
+			o.Commit[i] = o.Commit[i][1:]
+		}
+		regexPattern := `\s*\([^)]*\)$`
+		re := regexp.MustCompile(regexPattern)
+
+		o.Commit[i] = re.ReplaceAllString(o.Commit[i], "")
 	}
 }
 
@@ -84,5 +104,6 @@ func (o *Ollama) Generate(prompt string) error {
 		}
 	}
 	o.Response = fragments
+	o.FormatCommit()
 	return nil
 }
