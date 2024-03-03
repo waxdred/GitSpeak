@@ -62,6 +62,10 @@ func (o *Ollama) FormatCommit() {
 		re := regexp.MustCompile(regexPattern)
 
 		o.Commit[i] = re.ReplaceAllString(o.Commit[i], "")
+		index := strings.Index(o.Commit[i], ". ")
+		if index != -1 {
+			o.Commit[i] = o.Commit[i][index+2:]
+		}
 	}
 }
 
