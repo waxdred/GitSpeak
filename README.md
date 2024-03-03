@@ -24,7 +24,7 @@ GitSpeak is an innovative tool designed to enhance your Git workflow by automati
 - Git installed on your system.
 - Go (Golang) installed on your system (version 1.16 or newer recommended).
 - An OpenAI API key. You can obtain one by signing up at [OpenAI](https://platform.openai.com/docs/overview).
-- Fzg (Fuzzy Git) installed on your system. [fzf](https://github.com/junegunn/fzf)
+- Fzf (Fuzzy Git) installed on your system. [fzf](https://github.com/junegunn/fzf)
 
 ## Installation
 
