@@ -23,7 +23,8 @@ var (
 	answer        = flag.Int("answer", 4, "The number of answers to generate.")
 	ollama        = flag.Bool("Ollama", false, "Run GitSpeak with your models Ollama")
 	model         = flag.String("model", "llama2", "The Ollama model, by default llama2.")
-	ollamaUrl     = flag.String("OllamaUrl", "http://localhost:11434", "Url of your Ollama server by default http://localhost:11434")
+	ollamaUrl     = flag.String("OllamaUrl", "http://localhost", "Url and port of your Ollama server by default http://localhost")
+	port          = flag.String("port", "11434", "Port of your Ollama server by default 11434")
 )
 
 type GitCommenter struct {
@@ -194,8 +195,8 @@ func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
 	}
 	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
 	var p []string
-	for i, s := range prompt {
-		prompt[i] = strings.TrimPrefix(s, "- ")
+	for i, _ := range prompt {
+		prompt[i] = strings.TrimPrefix(prompt[i], "- ")
 		prompt[i] = strings.TrimLeft(prompt[i], " \t")
 		if len(prompt[i]) > 0 && unicode.IsDigit(rune(prompt[i][0])) {
 			index := strings.Index(prompt[i], " ")
@@ -226,6 +227,7 @@ func (gc *GitCommenter) ProcessCommits() {
 		return
 	}
 	for _, file := range files {
+		var prompt []string
 		diff, err := gc.GetDiffForFile(file)
 		if err != nil {
 			fmt.Println("Error getting diff for file:", file, err)
@@ -237,30 +239,32 @@ func (gc *GitCommenter) ProcessCommits() {
 			return
 		}
 		if *ollama {
-			llm := Models.New(*model, *ollamaUrl)
-			llm.Generate(fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions))
-			for _, fragment := range llm.Response {
-				fmt.Print(fragment.Response)
+			llm := Models.New(*model, *ollamaUrl, *port)
+			err := llm.Generate(fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions))
+			if err != nil {
+				fmt.Println("Error generating comments:", err)
+				return
 			}
+			prompt = llm.Commit
 		} else {
-			prompt, err := gc.ChatGpt(diff)
+			prompt, err = gc.ChatGpt(diff)
 			if err != nil {
 				fmt.Println("Error running chat gpt:", err)
 				return
 			}
-			commit, err := gc.RunFzf(prompt, diff, file)
-			if err != nil {
-				fmt.Println("Error running fzf:", err)
-				return
-			}
-			if gc.Semantic != "" {
-				commit = fmt.Sprintf("%s %s", gc.Semantic, commit)
-			}
-			err = gc.GitCommit(commit, file)
-			if err != nil {
-				fmt.Println("Error committing:", err)
-				return
-			}
+		}
+		commit, err := gc.RunFzf(prompt, diff, file)
+		if err != nil {
+			fmt.Println("Error running fzf:", err)
+			return
+		}
+		if gc.Semantic != "" {
+			commit = fmt.Sprintf("%s %s", gc.Semantic, commit)
+		}
+		err = gc.GitCommit(commit, file)
+		if err != nil {
+			fmt.Println("Error committing:", err)
+			return
 		}
 	}
 }
