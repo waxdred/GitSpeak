@@ -19,6 +19,8 @@ var (
 	semanticTerms = flag.String("semantic", "feat,fix,docs,style,refactor,perf,test,ci,chore,revert", "List of custom semantic commit terms separated by commas.")
 	answerSize    = flag.Int("max_length", 60, "The maximum size of each generated answer.")
 	answer        = flag.Int("answer", 4, "The number of answers to generate.")
+	ollama        = flag.Bool("Ollama", false, "Run GitSpeak with your models Ollama")
+	ollamaUrl     = flag.String("OllamaUrl", "http://localhost:11434", "Url of your Ollama server by default http://localhost:11434")
 )
 
 type GitCommenter struct {
