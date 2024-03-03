@@ -6,11 +6,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	openai "github.com/sashabaranov/go-openai"
 	"os"
 	"os/exec"
 	"strings"
 	"unicode"
+
+	openai "github.com/sashabaranov/go-openai"
+	"github.com/waxdred/GitSpeak/Models"
 )
 
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
@@ -20,6 +22,7 @@ var (
 	answerSize    = flag.Int("max_length", 60, "The maximum size of each generated answer.")
 	answer        = flag.Int("answer", 4, "The number of answers to generate.")
 	ollama        = flag.Bool("Ollama", false, "Run GitSpeak with your models Ollama")
+	model         = flag.String("model", "llama2", "The Ollama model, by default llama2.")
 	ollamaUrl     = flag.String("OllamaUrl", "http://localhost:11434", "Url of your Ollama server by default http://localhost:11434")
 )
 
@@ -232,24 +235,32 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error generating prompt:", err)
 			return
 		}
+		if *ollama {
+			llm := Models.New(*model, *ollamaUrl)
+			llm.Generate(fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions))
+			for _, fragment := range llm.Response {
+				fmt.Print(fragment.Response)
+			}
+		} else {
 
-		prompt, err := gc.ChatGpt(diff)
-		if err != nil {
-			fmt.Println("Error running chat gpt:", err)
-			return
-		}
-		commit, err := gc.RunFzf(prompt, diff, file)
-		if err != nil {
-			fmt.Println("Error running fzf:", err)
-			return
-		}
-		if gc.Semantic != "" {
-			commit = fmt.Sprintf("%s %s", gc.Semantic, commit)
-		}
-		err = gc.GitCommit(commit, file)
-		if err != nil {
-			fmt.Println("Error committing:", err)
-			return
+			prompt, err := gc.ChatGpt(diff)
+			if err != nil {
+				fmt.Println("Error running chat gpt:", err)
+				return
+			}
+			commit, err := gc.RunFzf(prompt, diff, file)
+			if err != nil {
+				fmt.Println("Error running fzf:", err)
+				return
+			}
+			if gc.Semantic != "" {
+				commit = fmt.Sprintf("%s %s", gc.Semantic, commit)
+			}
+			err = gc.GitCommit(commit, file)
+			if err != nil {
+				fmt.Println("Error committing:", err)
+				return
+			}
 		}
 	}
 }
