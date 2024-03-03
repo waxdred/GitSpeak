@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -39,7 +40,7 @@ type Request struct {
 
 func New(model, url string) *Ollama {
 	return &Ollama{
-		Model: model,
+		Model: strings.ToLower(model),
 		Url:   fmt.Sprintf("%s/api/generate", url),
 	}
 }
