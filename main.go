@@ -3,16 +3,14 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"unicode"
 
-	openai "github.com/sashabaranov/go-openai"
 	"github.com/waxdred/GitSpeak/Models"
+	openai "github.com/waxdred/GitSpeak/Openai"
 )
 
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
@@ -29,7 +27,7 @@ var (
 
 type GitCommenter struct {
 	OpenAIKey    string
-	Client       *openai.Client
+	OpenAi       *openai.OpenAI
 	Instructions string
 	PathdirGit   string
 	Semantic     string
@@ -38,8 +36,8 @@ type GitCommenter struct {
 func NewGitCommenter(apiKey string) *GitCommenter {
 	g := &GitCommenter{
 		OpenAIKey: apiKey,
-		Client:    openai.NewClient(apiKey),
 		Semantic:  strings.Replace(*semanticTerms, ",", ":\n", -1),
+		OpenAi:    openai.NewOpenAI(apiKey),
 	}
 	g.PathDirGit()
 	return g
@@ -142,7 +140,7 @@ func (gc *GitCommenter) RunFzf(selection []string, diff string, file string) (st
 			customMessage, _ := reader.ReadString('\n')
 			return strings.TrimSpace(customMessage), nil
 		} else if selected == reloadOption {
-			selection, err = gc.ChatGpt(diff)
+			selection, err = gc.OpenAi.ChatGpt(diff, PROMPT, gc.Instructions)
 			if err != nil {
 				fmt.Println("Error running chat gpt:", err)
 				return "", err
@@ -171,49 +169,8 @@ func (gc *GitCommenter) GenPrompt(file string) error {
 	if err != nil {
 		return err
 	}
-	gc.Instructions = fmt.Sprintf("\nInstructions for the model:\n-Semantic Commit Messages%s\n-Generate comments explaining why this change was made with a maximum of %d characters.\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes.\n answer format - answer", gc.Semantic, *answerSize, *answer)
+	gc.Instructions = fmt.Sprintf("Instructions for the model:\n-Semantic Commit Messages %s\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes with a maximum of %d characters.\n-formating answer in the following way only:\n1. <Commit message>\n-Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n", gc.Semantic, *answer, *answerSize)
 	return nil
-}
-
-func (gc *GitCommenter) ChatGpt(diff string) ([]string, error) {
-	resp, err := gc.Client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions),
-				},
-			},
-		},
-	)
-
-	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
-		return nil, err
-	}
-	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
-	var p []string
-	for i, _ := range prompt {
-		prompt[i] = strings.TrimPrefix(prompt[i], "- ")
-		prompt[i] = strings.TrimLeft(prompt[i], " \t")
-		if len(prompt[i]) > 0 && unicode.IsDigit(rune(prompt[i][0])) {
-			index := strings.Index(prompt[i], " ")
-			if index != -1 {
-				prompt[i] = prompt[i][index+1:]
-			}
-		}
-		index := strings.Index(prompt[i], ".")
-		if index != -1 {
-			prompt[i] = prompt[i][:index]
-		}
-		prompt[i] = strings.Replace(prompt[i], "\n", "", -1)
-		if prompt[i] != "" {
-			p = append(p, prompt[i])
-		}
-	}
-	return p, nil
 }
 
 func (gc *GitCommenter) ProcessCommits() {
@@ -240,14 +197,17 @@ func (gc *GitCommenter) ProcessCommits() {
 		}
 		if *ollama {
 			llm := Models.New(*model, *ollamaUrl, *port)
-			err := llm.Generate(fmt.Sprintf("%s%s%s", PROMPT, diff, gc.Instructions))
+			err := llm.Generate(fmt.Sprintf("%s%s", gc.Instructions, diff))
 			if err != nil {
 				fmt.Println("Error generating comments:", err)
 				return
 			}
+			for _, fragment := range llm.Commit {
+				fmt.Println(fragment)
+			}
 			prompt = llm.Commit
 		} else {
-			prompt, err = gc.ChatGpt(diff)
+			prompt, err = gc.OpenAi.ChatGpt(diff, PROMPT, gc.Instructions)
 			if err != nil {
 				fmt.Println("Error running chat gpt:", err)
 				return
@@ -271,11 +231,8 @@ func (gc *GitCommenter) ProcessCommits() {
 
 func main() {
 	flag.Parse()
+	//TODO need create class for openai
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		fmt.Println("OPENAI_API_KEY environment variable not set")
-		return
-	}
 	commenter := NewGitCommenter(apiKey)
 	commenter.ProcessCommits()
 }
