@@ -50,10 +50,12 @@ func New(model, url, port string) *Ollama {
 
 func (o *Ollama) keepCommit() {
 	var tmp []string
+	re := regexp.MustCompile(`^\d+\. `)
 	for i, _ := range o.Commit {
 		fmt.Println(o.Commit[i])
 		if len(o.Commit[i]) > 0 && unicode.IsDigit(rune(o.Commit[i][0])) {
-			tmp = append(tmp, o.Commit[i])
+			result := re.ReplaceAllString(o.Commit[i], "")
+			tmp = append(tmp, result)
 		}
 	}
 	o.Commit = tmp
@@ -74,10 +76,6 @@ func (o *Ollama) FormatCommit() {
 		re := regexp.MustCompile(regexPattern)
 
 		o.Commit[i] = re.ReplaceAllString(o.Commit[i], "")
-		// index := strings.Index(o.Commit[i], ". ")
-		// if index != -1 {
-		// 	o.Commit[i] = o.Commit[i][index+2:]
-		// }
 	}
 	o.keepCommit()
 }
