@@ -26,11 +26,12 @@ var (
 )
 
 type GitCommenter struct {
-	OpenAIKey    string
-	OpenAi       *openai.OpenAI
-	Instructions string
-	PathdirGit   string
-	Semantic     string
+	OpenAIKey      string
+	OpenAi         *openai.OpenAI
+	Instructions   string
+	PathdirGit     string
+	Semantic       string
+	SemanticSelect string
 }
 
 func NewGitCommenter(apiKey string) *GitCommenter {
@@ -165,11 +166,11 @@ func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
 
 func (gc *GitCommenter) GenPrompt(file string) error {
 	var err error
-	gc.Semantic, err = gc.RunFzfSemantic(file)
+	gc.SemanticSelect, err = gc.RunFzfSemantic(file)
 	if err != nil {
 		return err
 	}
-	gc.Instructions = fmt.Sprintf("Instructions for the model:\n-Semantic Commit Messages %s\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes with a maximum of %d characters.\n-formating answer in the following way only:\n1. <Commit message>\n-Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n", gc.Semantic, *answer, *answerSize)
+	gc.Instructions = fmt.Sprintf("Instructions for the model:\n-Semantic Commit Messages %s\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes with a maximum of %d characters.\n-formating answer in the following way only:\n1. <Commit message>\n-Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n", gc.SemanticSelect, *answer, *answerSize)
 	return nil
 }
 
