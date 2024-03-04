@@ -204,9 +204,6 @@ func (gc *GitCommenter) ProcessCommits() {
 				fmt.Println("Error generating comments:", err)
 				return
 			}
-			for _, fragment := range llm.Commit {
-				fmt.Println(fragment)
-			}
 			prompt = llm.Commit
 		} else {
 			prompt, err = gc.OpenAi.ChatGpt(diff, PROMPT, gc.Instructions)
@@ -220,8 +217,8 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error running fzf:", err)
 			return
 		}
-		if gc.Semantic != "" {
-			commit = fmt.Sprintf("%s %s", gc.Semantic, commit)
+		if gc.SemanticSelect != "" {
+			commit = fmt.Sprintf("%s %s", gc.SemanticSelect, commit)
 		}
 		err = gc.GitCommit(commit, file)
 		if err != nil {
