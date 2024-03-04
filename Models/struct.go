@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 )
 
 var MODELLIST = []string{"llama2", "mistral"}
@@ -47,6 +48,17 @@ func New(model, url, port string) *Ollama {
 	}
 }
 
+func (o *Ollama) keepCommit() {
+	var tmp []string
+	for i, _ := range o.Commit {
+		fmt.Println(o.Commit[i])
+		if len(o.Commit[i]) > 0 && unicode.IsDigit(rune(o.Commit[i][0])) {
+			tmp = append(tmp, o.Commit[i])
+		}
+	}
+	o.Commit = tmp
+}
+
 func (o *Ollama) FormatCommit() {
 	var tmp string
 	for _, r := range o.Response {
@@ -62,11 +74,12 @@ func (o *Ollama) FormatCommit() {
 		re := regexp.MustCompile(regexPattern)
 
 		o.Commit[i] = re.ReplaceAllString(o.Commit[i], "")
-		index := strings.Index(o.Commit[i], ". ")
-		if index != -1 {
-			o.Commit[i] = o.Commit[i][index+2:]
-		}
+		// index := strings.Index(o.Commit[i], ". ")
+		// if index != -1 {
+		// 	o.Commit[i] = o.Commit[i][index+2:]
+		// }
 	}
+	o.keepCommit()
 }
 
 func (o *Ollama) Generate(prompt string) error {
