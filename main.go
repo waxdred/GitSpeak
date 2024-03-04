@@ -161,6 +161,7 @@ func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("error executing git commit: %w", err)
 	}
+	fmt.Println("Commit created:", commitMessage)
 	return nil
 }
 
