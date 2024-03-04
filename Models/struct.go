@@ -52,7 +52,6 @@ func (o *Ollama) keepCommit() {
 	var tmp []string
 	re := regexp.MustCompile(`^\d+\. `)
 	for i, _ := range o.Commit {
-		fmt.Println(o.Commit[i])
 		if len(o.Commit[i]) > 0 && unicode.IsDigit(rune(o.Commit[i][0])) {
 			result := re.ReplaceAllString(o.Commit[i], "")
 			tmp = append(tmp, result)
