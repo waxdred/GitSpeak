@@ -90,7 +90,7 @@ func (gc *GitCommenter) RunFzfSemantic(file string) (string, error) {
 	if gc.Semantic == "" {
 		return "", nil
 	}
-	input := bytes.NewBufferString(gc.Semantic)
+	input := bytes.NewBufferString(gc.Semantic + "\n ")
 	cmd := exec.Command("fzf", "--header", "Semantic for "+file)
 	var stdout bytes.Buffer
 	cmd.Stdin = input
@@ -169,7 +169,11 @@ func (gc *GitCommenter) GenPrompt(file string) error {
 	if err != nil {
 		return err
 	}
-	gc.Instructions = fmt.Sprintf("Instructions for the model:\n-Semantic Commit Messages %s\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes with a maximum of %d characters.\n-formating answer in the following way only:\n1. <Commit message>\n-Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n", gc.SemanticSelect, *answer, *answerSize)
+	if gc.SemanticSelect == "" || gc.SemanticSelect == " " {
+		gc.Instructions = fmt.Sprintf("Instructions for the model:\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes with a maximum of %d characters.\n-formating answer in the following way only:\n1. <Commit message>\n-Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n", *answer, *answerSize)
+	} else {
+		gc.Instructions = fmt.Sprintf("Instructions for the model:\n-Semantic Commit Messages %s\n-Comments must be concise, clear, and suited to a developer audience.\n-Generate at least %d different comments to provide a variety of perspectives on the changes with a maximum of %d characters.\n-formating answer in the following way only:\n1. <Commit message>\n-Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n", gc.SemanticSelect, *answer, *answerSize)
+	}
 	return nil
 }
 
@@ -215,7 +219,7 @@ func (gc *GitCommenter) ProcessCommits() {
 			fmt.Println("Error running fzf:", err)
 			return
 		}
-		if gc.SemanticSelect != "" {
+		if gc.SemanticSelect != "" || gc.SemanticSelect != " " {
 			commit = fmt.Sprintf("%s %s", gc.SemanticSelect, commit)
 		}
 		err = gc.GitCommit(commit, file)
