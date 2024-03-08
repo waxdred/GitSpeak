@@ -230,7 +230,6 @@ func (gc *GitCommenter) ProcessCommits() {
 
 func main() {
 	flag.Parse()
-	//TODO need create class for openai
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	commenter := NewGitCommenter(apiKey)
 	commenter.ProcessCommits()
