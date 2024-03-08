@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -44,14 +45,12 @@ func (o *OpenAI) ChatGpt(diff, Sendprompt, Instructions string) ([]string, error
 	}
 	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
 	var p []string
+	re := regexp.MustCompile(`^\d+\. `)
 	for i, _ := range prompt {
 		prompt[i] = strings.TrimPrefix(prompt[i], "- ")
 		prompt[i] = strings.TrimLeft(prompt[i], " \t")
 		if len(prompt[i]) > 0 && unicode.IsDigit(rune(prompt[i][0])) {
-			index := strings.Index(prompt[i], " ")
-			if index != -1 {
-				prompt[i] = prompt[i][index+1:]
-			}
+			prompt[i] = re.ReplaceAllString(prompt[i], "")
 		}
 		index := strings.Index(prompt[i], ".")
 		if index != -1 {
