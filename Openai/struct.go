@@ -46,6 +46,7 @@ func (o *OpenAI) ChatGpt(diff, Sendprompt, Instructions string) ([]string, error
 	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
 	var p []string
 	re := regexp.MustCompile(`^\d+\. `)
+	reg := regexp.MustCompile(`^"|"$`)
 	for i, _ := range prompt {
 		prompt[i] = strings.TrimPrefix(prompt[i], "- ")
 		prompt[i] = strings.TrimLeft(prompt[i], " \t")
@@ -60,6 +61,7 @@ func (o *OpenAI) ChatGpt(diff, Sendprompt, Instructions string) ([]string, error
 		if prompt[i] != "" {
 			p = append(p, prompt[i])
 		}
+		prompt[i] = reg.ReplaceAllString(prompt[i], "")
 	}
 	return p, nil
 }
