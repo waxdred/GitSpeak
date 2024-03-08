@@ -26,7 +26,6 @@ var (
 )
 
 type GitCommenter struct {
-	OpenAIKey      string
 	OpenAi         *openai.OpenAI
 	Instructions   string
 	PathdirGit     string
@@ -36,9 +35,8 @@ type GitCommenter struct {
 
 func NewGitCommenter(apiKey string) *GitCommenter {
 	g := &GitCommenter{
-		OpenAIKey: apiKey,
-		Semantic:  strings.Replace(*semanticTerms, ",", ":\n", -1),
-		OpenAi:    openai.NewOpenAI(apiKey),
+		Semantic: strings.Replace(*semanticTerms, ",", ":\n", -1),
+		OpenAi:   openai.NewOpenAI(apiKey),
 	}
 	g.PathDirGit()
 	return g
