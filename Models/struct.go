@@ -12,8 +12,6 @@ import (
 	"unicode"
 )
 
-var MODELLIST = []string{"llama2", "mistral"}
-
 type Ollama struct {
 	Model       string
 	Url         string
