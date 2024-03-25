@@ -31,7 +31,7 @@ GitSpeak is an innovative tool designed to enhance your Git workflow by automati
 1. Clone this repository to your local machine.
 
 ```bash
-git clone https://your-repository-url.git
+git clone git@github.com:waxdred/GitSpeak.git
 cd GitSpeak
 ```
 
