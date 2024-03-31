@@ -109,6 +109,7 @@ func (gc *GitCommenter) RunFzfSemantic(file string) (string, error) {
 		fmt.Fprintf(os.Stderr, "Error running fzf: %v\n", err)
 		return "", err
 	}
+
 	selected := strings.TrimSpace(stdout.String())
 	if selected == "none:" {
 		return "", nil
@@ -245,6 +246,7 @@ func (gc *GitCommenter) ProcessCommits() {
 	}
 	if gc.commitAll {
 		gc.RunCommit("all files")
+		return
 	}
 	for _, file := range files {
 		gc.RunCommit(file)
