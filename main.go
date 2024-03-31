@@ -16,6 +16,7 @@ import (
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
 var (
+	comitAll      = flag.Bool("all", true, "Commit all files together or one by one")
 	semanticTerms = flag.String("semantic", "feat,fix,docs,style,refactor,perf,test,ci,chore,revert", "List of custom semantic commit terms separated by commas.")
 	answerSize    = flag.Int("max_length", 60, "The maximum size of each generated answer.")
 	answer        = flag.Int("answer", 4, "The number of answers to generate.")
@@ -23,7 +24,6 @@ var (
 	model         = flag.String("model", "llama2", "The Ollama model, by default llama2.")
 	ollamaUrl     = flag.String("OllamaUrl", "http://localhost", "Url and port of your Ollama server by default http://localhost")
 	port          = flag.String("port", "11434", "Port of your Ollama server by default 11434")
-	comitAll      = flag.Bool("all", true, "Commit all files together or one by one")
 )
 
 type GitCommenter struct {
