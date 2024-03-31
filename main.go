@@ -16,7 +16,7 @@ import (
 const PROMPT = "Based on the following diff, generate several informative commit comments that explain the changes made and their potential impact on the system. The changes are as follows\n\nDiff:\n"
 
 var (
-	comitAll      = flag.Bool("all", true, "Commit all files together or one by one")
+	comitAll      = flag.Bool("stage", true, "Commit all files together or one by one")
 	semanticTerms = flag.String("semantic", "feat,fix,docs,style,refactor,perf,test,ci,chore,revert", "List of custom semantic commit terms separated by commas.")
 	answerSize    = flag.Int("max_length", 60, "The maximum size of each generated answer.")
 	answer        = flag.Int("answer", 4, "The number of answers to generate.")
