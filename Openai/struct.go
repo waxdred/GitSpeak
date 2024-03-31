@@ -45,6 +45,7 @@ func (o *OpenAI) ChatGpt(diff, Sendprompt, Instructions string) ([]string, error
 	}
 	prompt := strings.Split(resp.Choices[0].Message.Content, "\n")
 	var p []string
+
 	re := regexp.MustCompile(`^\d+\. `)
 	reg := regexp.MustCompile(`^"|"$`)
 	for i, _ := range prompt {

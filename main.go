@@ -23,6 +23,7 @@ var (
 	model         = flag.String("model", "llama2", "The Ollama model, by default llama2.")
 	ollamaUrl     = flag.String("OllamaUrl", "http://localhost", "Url and port of your Ollama server by default http://localhost")
 	port          = flag.String("port", "11434", "Port of your Ollama server by default 11434")
+	comitAll      = flag.Bool("all", true, "Commit all files together or one by one")
 )
 
 type GitCommenter struct {
@@ -31,12 +32,14 @@ type GitCommenter struct {
 	PathdirGit     string
 	Semantic       string
 	SemanticSelect string
+	commitAll      bool
 }
 
-func NewGitCommenter(apiKey string) *GitCommenter {
+func NewGitCommenter(apiKey string, commitAll bool) *GitCommenter {
 	g := &GitCommenter{
-		Semantic: strings.Replace(*semanticTerms, ",", ":\n", -1),
-		OpenAi:   openai.NewOpenAI(apiKey),
+		Semantic:  strings.Replace(*semanticTerms, ",", ":\n", -1),
+		OpenAi:    openai.NewOpenAI(apiKey),
+		commitAll: commitAll,
 	}
 	g.PathDirGit()
 	return g
@@ -76,7 +79,12 @@ func (gc *GitCommenter) GetStagedFiles() ([]string, error) {
 }
 
 func (gc *GitCommenter) GetDiffForFile(filePath string) (string, error) {
-	cmd := exec.Command("git", "diff", "--cached", filePath)
+	var cmd *exec.Cmd
+	if gc.commitAll {
+		cmd = exec.Command("git", "diff", "--cached")
+	} else {
+		cmd = exec.Command("git", "diff", "--cached", filePath)
+	}
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
@@ -151,15 +159,21 @@ func (gc *GitCommenter) RunFzf(selection []string, diff string, file string) (st
 }
 
 func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
+	var cmd *exec.Cmd
 	if len(commitMessage) == 0 {
 		return fmt.Errorf("commit message is empty")
 	}
-	cmd := exec.Command("git", "commit", filePath, "-m", commitMessage)
+	if filePath == "all files" {
+		cmd = exec.Command("git", "commit", "-a", "-m", commitMessage)
+	} else {
+		cmd = exec.Command("git", "commit", filePath, "-m", commitMessage)
+	}
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error executing git commit: %w", err)
 	}
 	fmt.Println("Commit created:", commitMessage)
+
 	return nil
 }
 
@@ -177,6 +191,48 @@ func (gc *GitCommenter) GenPrompt(file string) error {
 	return nil
 }
 
+func (gc *GitCommenter) RunCommit(file string) {
+	var prompt []string
+	diff, err := gc.GetDiffForFile(file)
+	if err != nil {
+		fmt.Println("Error getting diff for file:", file, err)
+		return
+	}
+	err = gc.GenPrompt(file)
+	if err != nil {
+		fmt.Println("Error generating prompt:", err)
+		return
+	}
+	if *ollama {
+		llm := Models.New(*model, *ollamaUrl, *port)
+		err := llm.Generate(fmt.Sprintf("%s%s", gc.Instructions, diff))
+		if err != nil {
+			fmt.Println("Error generating comments:", err)
+			return
+		}
+		prompt = llm.Commit
+	} else {
+		prompt, err = gc.OpenAi.ChatGpt(diff, PROMPT, gc.Instructions)
+		if err != nil {
+			fmt.Println("Error running chat gpt:", err)
+			return
+		}
+	}
+	commit, err := gc.RunFzf(prompt, diff, file)
+	if err != nil {
+		fmt.Println("Error running fzf:", err)
+		return
+	}
+	if gc.SemanticSelect != "" || gc.SemanticSelect != " " {
+		commit = fmt.Sprintf("%s %s", gc.SemanticSelect, commit)
+	}
+	err = gc.GitCommit(commit, file)
+	if err != nil {
+		fmt.Println("Error committing:", err)
+		return
+	}
+}
+
 func (gc *GitCommenter) ProcessCommits() {
 	files, err := gc.GetStagedFiles()
 	if err != nil {
@@ -187,52 +243,17 @@ func (gc *GitCommenter) ProcessCommits() {
 		fmt.Println("No staged files found")
 		return
 	}
+	if gc.commitAll {
+		gc.RunCommit("all files")
+	}
 	for _, file := range files {
-		var prompt []string
-		diff, err := gc.GetDiffForFile(file)
-		if err != nil {
-			fmt.Println("Error getting diff for file:", file, err)
-			return
-		}
-		err = gc.GenPrompt(file)
-		if err != nil {
-			fmt.Println("Error generating prompt:", err)
-			return
-		}
-		if *ollama {
-			llm := Models.New(*model, *ollamaUrl, *port)
-			err := llm.Generate(fmt.Sprintf("%s%s", gc.Instructions, diff))
-			if err != nil {
-				fmt.Println("Error generating comments:", err)
-				return
-			}
-			prompt = llm.Commit
-		} else {
-			prompt, err = gc.OpenAi.ChatGpt(diff, PROMPT, gc.Instructions)
-			if err != nil {
-				fmt.Println("Error running chat gpt:", err)
-				return
-			}
-		}
-		commit, err := gc.RunFzf(prompt, diff, file)
-		if err != nil {
-			fmt.Println("Error running fzf:", err)
-			return
-		}
-		if gc.SemanticSelect != "" || gc.SemanticSelect != " " {
-			commit = fmt.Sprintf("%s %s", gc.SemanticSelect, commit)
-		}
-		err = gc.GitCommit(commit, file)
-		if err != nil {
-			fmt.Println("Error committing:", err)
-			return
-		}
+		gc.RunCommit(file)
 	}
 }
 
 func main() {
 	flag.Parse()
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	commenter := NewGitCommenter(apiKey)
+	commenter := NewGitCommenter(apiKey, *comitAll)
 	commenter.ProcessCommits()
 }
