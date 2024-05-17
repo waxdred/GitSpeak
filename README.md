@@ -82,6 +82,8 @@ To customize the behavior of GitSpeak, you can use the flag options as shown in 
 
 ```bash
 GitSpeak -max_length=60 -answer=5
+
+GitSpeak -stage=true # Commit all files together or one by one"
 ```
 
 This command will generate 5 different commit message suggestions, each with a maximum length of 60 characters.
