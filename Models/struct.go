@@ -126,7 +126,6 @@ func (o *Ollama) Generate(prompt string) error {
 		} else if err != nil {
 			return err
 		}
-		fmt.Println(m.Response)
 		fragments = append(fragments, m)
 		if m.Done {
 			break
