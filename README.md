@@ -64,9 +64,23 @@ Add this line to your .bashrc, .zshrc, or equivalent shell configuration file to
 
 GitSpeak supports a number of command-line flag options that allow you to customize its behavior. Below are the available flags and their descriptions:
 
-- `max_length`: Sets the maximum size of each generated answer. This controls the length of the commit messages that GitSpeak generates. The default value is 40. Example usage: GitSpeak -answer_size=50
-- `answer`: Specifies the number of answers (commit messages) to generate. This allows you to control how many different commit message suggestions GitSpeak will offer you to choose from. The default value is 4. Example usage: GitSpeak -answer=3
-- `semantic`: Allows specifying a custom list of semantic commit terms separated by commas. This lets you tailor the semantic categories to your project's needs, enhancing the structure and clarity of your commit history. The default terms are feat, fix, docs, style, refactor, perf, test, ci, chore, revert.
+- `stage`: Commit all files together or one by one (default: true)
+  Example usage: ./GitSpeak -stage=false
+- `semantic`: List of custom semantic commit terms separated by commas (default:            
+ "feat,fix,docs,style,refactor,perf,test,ci,chore,revert")
+Example usage: ./GitSpeak -semantic "custom_term,another_term"
+- `max_length`: The maximum size of each generated answer (default: 60)
+Example usage: ./GitSpeak -max_length=80
+- `answer`: The number of answers to generate (default: 4)
+Example usage: ./GitSpeak -answer=3
+- `Ollama`: Enable or disable Ollama-based commit message generation (default: true)
+Example usage: ./GitSpeak -Ollama=false
+- `model`: Select the OpenAI model to use for commit message generation (default: "gpt-3.5"). Available models include "gpt-2", "gpt-3", and "gpt-3.5"
+Example usage: ./GitSpeak -model gpt-3
+- `OllamaUrl`: Specify the URL of the Ollama model to use for commit message generation (default: https://api.openai.com/v1/models/gpt-3-5).
+Example usage: ./GitSpeak -OllamaUrl https://api.openai.com/v1/models/gpt-2
+- `OllaApiKey`: Specify the API key to use for Ollama-based commit message generation.
+Example usage: ./GitSpeak -OllaApiKey "your_ollaki_api_key_here"
 
 These flags provide you with flexibility in how GitSpeak generates commit messages, allowing you to tailor the output to your specific needs or preferences.
 
