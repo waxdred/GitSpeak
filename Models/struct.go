@@ -101,11 +101,8 @@ func (o *Ollama) Generate(prompt string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(o.Url)
-	fmt.Println(o.Apikey)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", o.Apikey))
 	req.Header.Set("Content-Type", "application/json")
-	fmt.Println(req.Header.Get("Authorization"))
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -114,7 +111,10 @@ func (o *Ollama) Generate(prompt string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Error: %s", resp.Status)
+		var response map[string]interface{}
+		body := json.NewDecoder(resp.Body)
+		body.Decode(&response)
+		return fmt.Errorf("Error: %s", resp.Status, response["error"])
 	}
 
 	var fragments []Model
