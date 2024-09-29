@@ -23,6 +23,7 @@ var (
 	ollama        = flag.Bool("Ollama", false, "Run GitSpeak with your models Ollama")
 	model         = flag.String("model", "llama2", "The Ollama model, by default llama2.")
 	ollamaUrl     = flag.String("OllamaUrl", "http://localhost", "Url and port of your Ollama server by default http://localhost")
+	ollaApiKey    = flag.String("OllamaApiKey", "", "Ollama API key")
 	port          = flag.String("port", "11434", "Port of your Ollama server by default 11434")
 )
 
@@ -205,7 +206,7 @@ func (gc *GitCommenter) RunCommit(file string) {
 		return
 	}
 	if *ollama {
-		llm := Models.New(*model, *ollamaUrl, *port)
+		llm := Models.New(*model, *ollamaUrl, *ollaApiKey, *port)
 		err := llm.Generate(fmt.Sprintf("%s%s", gc.Instructions, diff))
 		if err != nil {
 			fmt.Println("Error generating comments:", err)

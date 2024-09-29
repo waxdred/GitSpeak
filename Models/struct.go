@@ -15,6 +15,7 @@ import (
 type Ollama struct {
 	Model       string
 	Url         string
+	Apikey      string
 	ModelAnswer Model
 	Response    []Model
 	Commit      []string
@@ -39,10 +40,15 @@ type Request struct {
 	Prompt string `json:"prompt"`
 }
 
-func New(model, url, port string) *Ollama {
+func New(model, url, apikey, port string) *Ollama {
+	u := fmt.Sprintf("%s:%s", url, port)
+	if strings.Contains(u, "https") {
+		u = url
+	}
 	return &Ollama{
-		Model: strings.ToLower(model),
-		Url:   fmt.Sprintf("%s/api/generate", fmt.Sprintf("%s:%s", url, port)),
+		Model:  strings.ToLower(model),
+		Apikey: apikey,
+		Url:    fmt.Sprintf("%s/api/generate", u),
 	}
 }
 
@@ -65,14 +71,16 @@ func (o *Ollama) FormatCommit() {
 	}
 
 	o.Commit = strings.Split(tmp, "\n")
-	for i, _ := range o.Commit {
-		if i == 0 && o.Commit[i][0] == ' ' {
-			o.Commit[i] = o.Commit[i][1:]
-		}
-		regexPattern := `\s*\([^)]*\)$`
-		re := regexp.MustCompile(regexPattern)
+	if len(o.Commit) > 0 {
+		for i, _ := range o.Commit {
+			if i == 0 && o.Commit[i][0] == ' ' {
+				o.Commit[i] = o.Commit[i][1:]
+			}
+			regexPattern := `\s*\([^)]*\)$`
+			re := regexp.MustCompile(regexPattern)
 
-		o.Commit[i] = re.ReplaceAllString(o.Commit[i], "")
+			o.Commit[i] = re.ReplaceAllString(o.Commit[i], "")
+		}
 	}
 	o.keepCommit()
 }
@@ -93,13 +101,21 @@ func (o *Ollama) Generate(prompt string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println(o.Url)
+	fmt.Println(o.Apikey)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", o.Apikey))
 	req.Header.Set("Content-Type", "application/json")
+	fmt.Println(req.Header.Get("Authorization"))
 
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Error: %s", resp.Status)
+	}
 
 	var fragments []Model
 	decoder := json.NewDecoder(resp.Body)
@@ -110,6 +126,7 @@ func (o *Ollama) Generate(prompt string) error {
 		} else if err != nil {
 			return err
 		}
+		fmt.Println(m.Response)
 		fragments = append(fragments, m)
 		if m.Done {
 			break
