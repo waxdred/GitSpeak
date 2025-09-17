@@ -166,7 +166,7 @@ func (gc *GitCommenter) GitCommit(commitMessage, filePath string) error {
 		return fmt.Errorf("commit message is empty")
 	}
 	if filePath == "all files" {
-		cmd = exec.Command("git", "commit", "-a", "-m", commitMessage)
+		cmd = exec.Command("git", "commit", "-m", commitMessage)
 	} else {
 		cmd = exec.Command("git", "commit", filePath, "-m", commitMessage)
 	}
